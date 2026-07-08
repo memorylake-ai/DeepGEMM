@@ -44,23 +44,18 @@ public:
         return mk_alignment_for_contiguous_layout;
     }
 
-    // Per-arch BLOCK_M search: start at `max_block_m`, step down by `step` (never below
-    // `min_block_m`) until the tile no longer over-covers M.
     struct ContiguousMKAlignment { int max_block_m, min_block_m, step; };
 
     static ContiguousMKAlignment get_contiguous_mk_alignment(const int& arch_major) {
-        // SM120: warp layout is kMWarps(4) * MMA_M(16), so BLOCK_M is a multiple of 64
         if (arch_major == 12)
             return {128, 64, 64};
-        // SM100: 16-row MMA steps from 240 down to 32
         if (arch_major == 10)
-            return {240, 32, 16};
-        // SM90 and others: fixed legacy alignment, no shrinking
+            return {224, 32, 32};
         return {kLegacyMKAlignmentForContiguousLayout, kLegacyMKAlignmentForContiguousLayout, 1};
     }
 
     static int get_theoretical_mk_alignment_for_contiguous_layout(const std::optional<int>& expected_m,
-                                                                    const std::optional<int>& num_groups = std::nullopt) {
+                                                                  const std::optional<int>& num_groups = std::nullopt) {
         const auto spec = get_contiguous_mk_alignment(device_runtime->get_arch_major());
         int block_m = spec.max_block_m;
         if (expected_m.has_value()) {

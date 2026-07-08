@@ -15,7 +15,7 @@
 #include <deep_gemm/ptx/ld_st.cuh>
 #include <deep_gemm/ptx/utils.cuh>
 #include <deep_gemm/ptx/wgmma.cuh>
-#include <deep_gemm/scheduler/paged_mqa_logits.cuh>
+#include <deep_gemm/scheduler/sm90_paged_mqa_logits.cuh>
 
 namespace deep_gemm {
 
@@ -139,11 +139,9 @@ void sm90_fp8_paged_mqa_logits(const uint32_t batch_size,
     cudaGridDependencySynchronize();
 
     // Scheduler
-    // NOTES: when multicasting we launch one cluster of `kNumKVMulticast` CTAs per task, so use cluster id.
-    // SM90 doesn't support varlen — `kIsVarlen` is statically false (asserted above); pass nullptr for indices.
-    auto scheduler = sched::PagedMQALogitsScheduler<kNextN, kIsContextLens2D, kIsVarlen, kComputeBlockKV, kNumMathWarpGroups, 1>(
-        cute::cluster_id_in_grid().x, batch_size, context_lens, schedule_meta, /*indices=*/nullptr);
-    DG_STATIC_ASSERT(SPLIT_KV % kComputeBlockKV == 0, "Unaligned SPLIT_KV");
+    auto scheduler = sched::SM90PagedMQALogitsScheduler<kNextN, kIsContextLens2D, kIsVarlen, BLOCK_KV, kNumMathWarpGroups, 1>(
+        blockIdx.x, batch_size, context_lens, schedule_meta, indices);
+    DG_STATIC_ASSERT(SPLIT_KV % BLOCK_KV == 0, "Unaligned SPLIT_KV");
 
     // Q and KV pipeline
     const auto get_q_pipeline = [=](const uint32_t& q_iter_idx) -> cute::tuple<uint32_t, uint32_t> {

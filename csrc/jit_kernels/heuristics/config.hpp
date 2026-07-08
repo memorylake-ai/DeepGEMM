@@ -22,12 +22,14 @@ struct GemmDesc {
     int num_sms, tc_util;
     std::string compiled_dims;
 
-    // SF granularity for split-K alignment: max(gran_k_a, gran_k_b).
+    // SM120 FP8/FP4 split-K alignment. Each packed UE8M0 SF row covers 4 * max_gran_k K elements.
     int max_gran_k = 128;
 
-    // False for AB-swap (transposed, stride_cd_n != 1) output: the TMA-store epilogue
-    // cannot express it, so the kernel falls back to the strided-store epilogue.
+    // SM120 TMA-store epilogue is valid only when D is contiguous in N.
     bool cd_n_contiguous = true;
+
+    // SM100 m-grouped psum layout padding contract
+    bool ensure_zero_padding = true;
 
     // Shape for heuristic generation
     int expected_m = 0, expected_n = 0, expected_k = 0, expected_num_groups = 0;
@@ -67,6 +69,9 @@ struct GemmDesc {
            << ", num_sms=" << desc.num_sms
            << ", tc_util=" << desc.tc_util
            << ", compiled_dims=" << desc.compiled_dims
+           << ", max_gran_k=" << desc.max_gran_k
+           << ", cd_n_contiguous=" << static_cast<int>(desc.cd_n_contiguous)
+           << ", ensure_zero_padding=" << static_cast<int>(desc.ensure_zero_padding)
            << ", expected_m=" << desc.expected_m
            << ", expected_n=" << desc.expected_n
            << ", expected_k=" << desc.expected_k
